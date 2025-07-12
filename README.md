@@ -42,8 +42,8 @@ ROSA is your AI-powered assistant for ROS1 and ROS2 systems. Built on the [Langc
 ## 🚀 Quick Start
 
 ### Requirements
-- Python 3.9+
-- ROS Noetic or higher
+- Python 3.10+
+- ROS Humble or higher (ROS2 recommended)
 
 ### Installation
 ```bash
@@ -64,17 +64,27 @@ For detailed information on configuring the LLM, please refer to our [Model Conf
 
 ### LLM Provider Support
 
-ROSA supports multiple LLM providers:
+ROSA supports multiple LLM providers with both native and LangChain-based implementations:
 
-- **Azure OpenAI** (default): Enterprise-grade OpenAI models via Azure
-- **Google Gemini**: Google's generative AI models
-- **Ollama**: Local LLM hosting
+- **Google Gemini** (recommended): Native SDK implementation for optimal function calling reliability
+- **Azure OpenAI**: Enterprise-grade OpenAI models via LangChain
+- **OpenAI**: Direct OpenAI API integration via LangChain  
+- **Ollama**: Local LLM hosting via LangChain
 
 #### Environment Variable Configuration
 
-**Azure OpenAI (default):**
+**Google Gemini (recommended):**
 ```bash
-export LLM_PROVIDER=azure_openai  # Optional, this is the default
+export LLM_PROVIDER=gemini
+export GOOGLE_API_KEY=your-google-api-key
+export GEMINI_MODEL=gemini-1.5-flash  # Optional, defaults to gemini-1.5-flash
+```
+
+Get your Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+
+**Azure OpenAI:**
+```bash
+export LLM_PROVIDER=azure_openai
 export AZURE_TENANT_ID=your-tenant-id
 export AZURE_CLIENT_ID=your-client-id
 export AZURE_CLIENT_SECRET=your-client-secret
@@ -84,14 +94,17 @@ export API_ENDPOINT=https://your-resource.openai.azure.com/
 export APIM_SUBSCRIPTION_KEY=your-subscription-key
 ```
 
-**Google Gemini:**
+**OpenAI:**
 ```bash
-export LLM_PROVIDER=gemini
-export GOOGLE_API_KEY=your-google-api-key
-export GEMINI_MODEL=gemini-1.5-flash  # Optional, defaults to gemini-1.5-flash
+export LLM_PROVIDER=openai
+export OPENAI_API_KEY=your-openai-api-key
 ```
 
-Get your Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+**Ollama:**
+```bash
+export LLM_PROVIDER=ollama
+export OLLAMA_MODEL=llama3.1:8b  # Or your preferred model
+```
 
 
 ## Adapting ROSA for Your Robot 🔧
@@ -103,7 +116,7 @@ For detailed information on creating custom agents, adding tools, and customizin
 
 ## TurtleSim Demo 🐢
 
-We have included a demo that uses ROSA to control the TurtleSim robot in simulation. To run the demo, you will need to have Docker installed on your machine. 🐳
+We have included a demo that uses ROSA to control the TurtleSim robot in simulation using ROS2. The demo now features enhanced reliability with native Gemini SDK implementation that actually executes turtle movements instead of just providing explanations. To run the demo, you will need to have Docker installed on your machine. 🐳
 
 The following video shows ROSA reasoning about how to draw a 5-point star, then 
 executing the necessary commands to do so.
@@ -112,7 +125,7 @@ https://github.com/user-attachments/assets/77b97014-6d2e-4123-8d0b-ea0916d93a4e
 
 For detailed instructions on setting up and running the TurtleSim demo, please refer to our [TurtleSim Demo Guide](https://github.com/nasa-jpl/rosa/wiki/Guide:-TurtleSim-Demo) in the Wiki.
 
-**Note:** The TurtleSim demo supports all LLM providers. To use Gemini, create a `.env` file with your `LLM_PROVIDER=gemini` and `GOOGLE_API_KEY` settings.
+**Note:** The TurtleSim demo supports all LLM providers with automatic detection. For best performance, use Gemini with native SDK implementation by creating a `.env` file with `LLM_PROVIDER=gemini` and `GOOGLE_API_KEY` settings.
 
 
 ## IsaacSim Extension (Coming Soon)

@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0]
+
+### Added
+
+* **Native Gemini SDK implementation** - Direct integration with Google's `google-generativeai` package for improved reliability
+* **Complete ROS2 migration** - Full conversion from ROS1 to ROS2 with rclpy-based tools
+* **Auto-detection of LLM providers** - Automatic selection between native Gemini and LangChain implementations
+* **Function argument type conversion** - Automatic conversion of data types for ROS service compatibility
+* **Comprehensive project documentation** - Added detailed documentation covering all features and changes
+* **Debug utilities** - Added troubleshooting tools for development and testing
+
+### Changed
+
+* **Turtle tools completely rewritten** - Converted from rospy (ROS1) to rclpy (ROS2) for better performance
+* **Launch files modernized** - Updated from ROS1 XML format to ROS2 Python format
+* **Calculation functions restructured** - Modified for better Gemini API compatibility
+* **Prompts enhanced** - Updated to be more action-oriented and ROS2-specific
+* **Docker configuration improved** - Updated to ROS2 Humble base with proper dependencies
+* **Import handling enhanced** - Better support for both direct execution and `ros2 run`
+
+### Fixed
+
+* **Gemini schema format errors** - Fixed `KeyError: 'object'` during tool conversion
+* **Function calling response mismatch** - Resolved "400 function response parts" errors
+* **ROS service type errors** - Fixed `'r' field must be of type 'int'` conversion issues
+* **Import errors** - Fixed module import issues across different execution environments
+* **Docker dependency issues** - Added missing `google-generativeai` package
+
+### Removed
+
+* **Unnecessary launch files** - Removed unused launch configurations
+* **"Gen by Cursor" comments** - Cleaned up development artifacts from codebase
+
 ## [1.0.8]
 
 ### Changed
