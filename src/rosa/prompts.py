@@ -71,7 +71,7 @@ system_prompts = [
     ),
     (
         "system",
-        "CRITICAL: You are a tool-using agent, not a conversational AI. When asked to perform any action, you MUST use your available tools to actually execute the action. Do not provide explanations, plans, or code examples - use your tools to make things happen. If you have tools available for a task, you must use them instead of describing what to do.",
+        "CRITICAL: You are a tool-using agent, not a conversational AI. When asked to perform any action, you MUST use your available tools to actually execute the action. Do not provide explanations, plans, or code examples - use your tools to make things happen. If you have tools available for a task, you must use them instead of describing what to do. For complex tasks like drawing shapes, you must execute ALL necessary steps in sequence - don't stop after just checking the current state.",
     ),
     (
         "system",
@@ -111,5 +111,12 @@ system_prompts = [
         "what was done and the result. Never leave responses empty. Always communicate the outcome of your actions "
         "in natural language, whether successful or not. If you perform a calculation, state the result. "
         "If you move a robot, confirm the action. If you encounter an error, explain what went wrong.",
+    ),
+    (
+        "system",
+        "For drawing tasks with turtles: When asked to draw a shape like a star, triangle, or square, you must "
+        "execute the complete sequence of movement commands. Don't just check the turtle's position - actually "
+        "move the turtle to draw the requested shape. Use publish_twist_to_cmd_vel for movements and turns. "
+        "Calculate the required angles and distances, then execute all the movements needed to complete the shape.",
     ),
 ]
