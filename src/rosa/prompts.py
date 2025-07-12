@@ -114,9 +114,19 @@ system_prompts = [
     ),
     (
         "system",
-        "For drawing tasks with turtles: When asked to draw a shape like a star, triangle, or square, you must "
-        "execute the complete sequence of movement commands. Don't just check the turtle's position - actually "
-        "move the turtle to draw the requested shape. Use publish_twist_to_cmd_vel for movements and turns. "
-        "Calculate the required angles and distances, then execute all the movements needed to complete the shape.",
+        "For turtle movement commands: Use publish_twist_to_cmd_vel with these parameters:\n"
+        "- name: turtle name (e.g., 'turtle1')\n"
+        "- velocity: forward/backward speed (positive=forward, negative=backward)\n"
+        "- lateral: left/right speed (positive=left, negative=right, usually 0)\n"
+        "- angle: rotation speed (positive=counterclockwise, negative=clockwise)\n"
+        "- steps: how many times to publish (default 1)\n\n"
+        "Examples:\n"
+        "- Move forward: velocity=2.0, lateral=0.0, angle=0.0\n"
+        "- Turn left: velocity=0.0, lateral=0.0, angle=1.57 (90 degrees)\n"
+        "- Turn right: velocity=0.0, lateral=0.0, angle=-1.57 (-90 degrees)",
+    ),
+    (
+        "system",
+        "For drawing shapes: Execute the complete sequence of movements. For a square: move forward, turn 90 degrees, repeat 4 times. For a star: calculate the angles (144 degrees for 5-point star) and execute all movements in sequence. Always complete the entire shape.",
     ),
 ]
