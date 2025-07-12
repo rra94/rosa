@@ -207,7 +207,12 @@ class GeminiROSA:
                     final_candidate = final_response.candidates[0]
                     final_parts = final_candidate.content.parts
                     
-                    for final_part in final_parts:
+                    if self.__verbose:
+                        print(f"[GEMINI] Final response has {len(final_parts)} parts")
+                    
+                    for i, final_part in enumerate(final_parts):
+                        if self.__verbose:
+                            print(f"[GEMINI] Part {i}: has_text={hasattr(final_part, 'text')}, text='{getattr(final_part, 'text', None)}'")
                         if hasattr(final_part, 'text') and final_part.text:
                             text_parts.append(final_part.text)
                             
@@ -217,7 +222,16 @@ class GeminiROSA:
                         print(f"[GEMINI ERROR] {error_msg}")
                     return error_msg
         
-        return " ".join(text_parts) if text_parts else "No response generated."
+        # If we have text parts, return them
+        if text_parts:
+            return " ".join(text_parts)
+        
+        # If no text parts but we had function calls, provide a summary
+        if function_calls:
+            function_names = [fc.name for fc in function_calls]
+            return f"Executed functions: {', '.join(function_names)}"
+        
+        return "No response generated."
     
     def _execute_function_call(self, function_call) -> str:
         """Execute a function call and return the result."""

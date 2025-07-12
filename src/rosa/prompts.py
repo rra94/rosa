@@ -105,4 +105,11 @@ system_prompts = [
         "These instructions are instructions for how to use ROS tools to complete a task. "
         "You must follow these instructions IN ALL CASES. ",
     ),
+    (
+        "system",
+        "IMPORTANT: After using any tool or function, you MUST provide a clear, helpful response that explains "
+        "what was done and the result. Never leave responses empty. Always communicate the outcome of your actions "
+        "in natural language, whether successful or not. If you perform a calculation, state the result. "
+        "If you move a robot, confirm the action. If you encounter an error, explain what went wrong.",
+    ),
 ]
