@@ -35,7 +35,7 @@ class GeminiROSA:
         self,
         ros_version: Literal[1, 2],
         api_key: str,
-        model_name: str = "gemini-1.5-flash",
+        model_name: str = "gemini-2.5-flash",
         tools: Optional[list] = None,
         tool_packages: Optional[list] = None,
         prompts: Optional[RobotSystemPrompts] = None,

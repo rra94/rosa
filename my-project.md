@@ -38,7 +38,7 @@ ROSA (Robot Operating System Agent) is a ROS-based robotics agent with LLM capab
 - **Configuration**: 
   - Set `LLM_PROVIDER=gemini` in .env
   - Requires `GOOGLE_API_KEY`
-  - Optional: `GEMINI_MODEL` (default: gemini-1.5-flash)
+  - Optional: `GEMINI_MODEL` (default: gemini-2.5-flash)
 
 ### LangChain-based Implementation
 - **File**: `src/rosa/rosa.py`
@@ -78,7 +78,7 @@ ROSA (Robot Operating System Agent) is a ROS-based robotics agent with LLM capab
   - `openai`: Use OpenAI via LangChain
   - `ollama`: Use Ollama via LangChain
 - `GOOGLE_API_KEY`: Required for Gemini
-- `GEMINI_MODEL`: Gemini model name (default: gemini-1.5-flash)
+- `GEMINI_MODEL`: Gemini model name (default: gemini-2.5-flash)
 - `VERBOSE`: Enable verbose logging
 - `STREAMING`: Enable streaming responses (LangChain only)
 

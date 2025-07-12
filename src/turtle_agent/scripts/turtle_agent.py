@@ -68,7 +68,7 @@ class TurtleAgent(Node):
                         print(f"  {key}={value[:10]}..." if len(value) > 10 else f"  {key}={value}")
                 raise ValueError("GOOGLE_API_KEY environment variable is required for Gemini. Please check your .env file.")
             
-            model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+            model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
             
             self.rosa = GeminiROSA(
                 ros_version=2,

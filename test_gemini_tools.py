@@ -22,7 +22,7 @@ def test_gemini_tools():
     
     # Initialize Gemini model
     llm = ChatGoogleGenerativeAI(
-        model=os.getenv("GEMINI_MODEL", "gemini-1.5-flash"),
+        model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
         temperature=0.0
     )
     

@@ -77,7 +77,7 @@ ROSA supports multiple LLM providers with both native and LangChain-based implem
 ```bash
 export LLM_PROVIDER=gemini
 export GOOGLE_API_KEY=your-google-api-key
-export GEMINI_MODEL=gemini-1.5-flash  # Optional, defaults to gemini-1.5-flash
+export GEMINI_MODEL=gemini-2.5-flash  # Optional, defaults to gemini-2.5-flash
 ```
 
 Get your Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey).

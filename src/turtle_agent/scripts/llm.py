@@ -28,7 +28,7 @@ def get_llm(streaming: bool = False):
     
     if provider == "gemini":
         api_key = get_env_variable("GOOGLE_API_KEY")
-        model = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+        model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
         llm = ChatGoogleGenerativeAI(
             model=model,
             google_api_key=api_key,
