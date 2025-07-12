@@ -62,6 +62,37 @@ agent.invoke("Show me a list of topics that have publishers but no subscribers")
 
 For detailed information on configuring the LLM, please refer to our [Model Configuration Wiki page](https://github.com/nasa-jpl/rosa/wiki/Model-Configuration).
 
+### LLM Provider Support
+
+ROSA supports multiple LLM providers:
+
+- **Azure OpenAI** (default): Enterprise-grade OpenAI models via Azure
+- **Google Gemini**: Google's generative AI models
+- **Ollama**: Local LLM hosting
+
+#### Environment Variable Configuration
+
+**Azure OpenAI (default):**
+```bash
+export LLM_PROVIDER=azure_openai  # Optional, this is the default
+export AZURE_TENANT_ID=your-tenant-id
+export AZURE_CLIENT_ID=your-client-id
+export AZURE_CLIENT_SECRET=your-client-secret
+export DEPLOYMENT_ID=your-deployment-id
+export API_VERSION=2024-02-01
+export API_ENDPOINT=https://your-resource.openai.azure.com/
+export APIM_SUBSCRIPTION_KEY=your-subscription-key
+```
+
+**Google Gemini:**
+```bash
+export LLM_PROVIDER=gemini
+export GOOGLE_API_KEY=your-google-api-key
+export GEMINI_MODEL=gemini-1.5-flash  # Optional, defaults to gemini-1.5-flash
+```
+
+Get your Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+
 
 ## Adapting ROSA for Your Robot 🔧
 
@@ -80,6 +111,8 @@ executing the necessary commands to do so.
 https://github.com/user-attachments/assets/77b97014-6d2e-4123-8d0b-ea0916d93a4e
 
 For detailed instructions on setting up and running the TurtleSim demo, please refer to our [TurtleSim Demo Guide](https://github.com/nasa-jpl/rosa/wiki/Guide:-TurtleSim-Demo) in the Wiki.
+
+**Note:** The TurtleSim demo supports all LLM providers. To use Gemini, create a `.env` file with your `LLM_PROVIDER=gemini` and `GOOGLE_API_KEY` settings.
 
 
 ## IsaacSim Extension (Coming Soon)

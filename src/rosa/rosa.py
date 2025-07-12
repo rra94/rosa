@@ -25,11 +25,12 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama import ChatOllama
 from langchain_openai import AzureChatOpenAI, ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 from .prompts import RobotSystemPrompts, system_prompts
 from .tools import ROSATools
 
-ChatModel = Union[ChatOpenAI, AzureChatOpenAI, ChatOllama]
+ChatModel = Union[ChatOpenAI, AzureChatOpenAI, ChatOllama, ChatGoogleGenerativeAI]
 
 
 class ROSA:

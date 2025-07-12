@@ -17,12 +17,26 @@ import os
 import dotenv
 from azure.identity import ClientSecretCredential, get_bearer_token_provider
 from langchain_openai import AzureChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 
 def get_llm(streaming: bool = False):
     """A helper function to get the LLM instance."""
     dotenv.load_dotenv(dotenv.find_dotenv())
 
+    provider = os.getenv("LLM_PROVIDER", "azure_openai")
+    
+    if provider == "gemini":
+        api_key = get_env_variable("GOOGLE_API_KEY")
+        model = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+        llm = ChatGoogleGenerativeAI(
+            model=model,
+            google_api_key=api_key,
+            streaming=streaming,
+        )
+        return llm
+    
+    # Default to Azure OpenAI
     APIM_SUBSCRIPTION_KEY = get_env_variable("APIM_SUBSCRIPTION_KEY")
     default_headers = {}
     if APIM_SUBSCRIPTION_KEY is not None:
