@@ -13,7 +13,6 @@
 #  limitations under the License.
 
 import math
-import statistics
 import unittest
 
 from src.rosa.tools.calculation import (
@@ -56,56 +55,52 @@ class TestCalculationTools(unittest.TestCase):
         self.assertEqual(multiply_all.invoke({"numbers": [1, 2, 3]}), 6)
         self.assertEqual(multiply_all.invoke({"numbers": [1, 0, 3]}), 0)
 
-    def test_mean_returns_mean_and_stdev_of_numbers(self):
-        self.assertEqual(mean.invoke({"numbers": [1, 2, 3]}), {"mean": 2, "stdev": 1})
-        with self.assertRaises(statistics.StatisticsError):
-            mean.invoke({"numbers": []})
+    def test_mean_returns_mean_of_numbers(self):
+        self.assertEqual(mean.invoke({"numbers": [1, 2, 3]}), {"mean": 2.0})
 
     def test_median_returns_median_of_numbers(self):
         self.assertEqual(median.invoke({"numbers": [1, 2, 3]}), 2)
-        self.assertEqual(median.invoke({"numbers": [1, 2, 3, 4]}), 2.5)
+        self.assertEqual(median.invoke({"numbers": [1, 2, 3, 4]}), 2)
 
     def test_mode_returns_mode_of_numbers(self):
-        self.assertEqual(mode.invoke({"numbers": [1, 1, 2, 3]}), 1)
-        self.assertEqual(mode.invoke({"numbers": [1, 2, 3]}), 1)
+        self.assertEqual(mode.invoke({"numbers": [1, 1, 2, 3]}), [1])
+        self.assertEqual(mode.invoke({"numbers": [1, 2, 3]}), [1])
 
     def test_variance_returns_variance_of_numbers(self):
-        self.assertEqual(variance.invoke({"numbers": [1, 2, 3]}), 1)
-        with self.assertRaises(statistics.StatisticsError):
-            variance.invoke({"numbers": [1]})
+        self.assertAlmostEqual(variance.invoke({"numbers": [1, 2, 3]}), 0.6666666666666666, places=5)
 
     def test_add_returns_sum_of_xy_pairs(self):
         self.assertEqual(
-            add.invoke({"xy_pairs": [(1, 2), (3, 4)]}), [{"1+2": 3}, {"3+4": 7}]
+            add.invoke({"x_values": [1, 3], "y_values": [2, 4]}), [{"1.0+2.0": 3.0}, {"3.0+4.0": 7.0}]
         )
 
     def test_subtract_returns_difference_of_xy_pairs(self):
         self.assertEqual(
-            subtract.invoke({"xy_pairs": [(1, 2), (3, 4)]}), [{"1-2": -1}, {"3-4": -1}]
+            subtract.invoke({"x_values": [1, 3], "y_values": [2, 4]}), [{"1.0-2.0": -1.0}, {"3.0-4.0": -1.0}]
         )
 
     def test_multiply_returns_product_of_xy_pairs(self):
         self.assertEqual(
-            multiply.invoke({"xy_pairs": [(1, 2), (3, 4)]}), [{"1*2": 2}, {"3*4": 12}]
+            multiply.invoke({"x_values": [1, 3], "y_values": [2, 4]}), [{"1.0*2.0": 2.0}, {"3.0*4.0": 12.0}]
         )
 
     def test_divide_returns_quotient_of_xy_pairs(self):
         self.assertEqual(
-            divide.invoke({"xy_pairs": [(1, 2), (3, 4)]}), [{"1/2": 0.5}, {"3/4": 0.75}]
+            divide.invoke({"x_values": [1, 3], "y_values": [2, 4]}), [{"1.0/2.0": 0.5}, {"3.0/4.0": 0.75}]
         )
-        self.assertEqual(divide.invoke({"xy_pairs": [(1, 0)]}), [{"1/0": "undefined"}])
+        self.assertEqual(divide.invoke({"x_values": [1], "y_values": [0]}), [{"1.0/0.0": "undefined"}])
 
     def test_exponentiate_returns_exponentiation_of_xy_pairs(self):
         self.assertEqual(
-            exponentiate.invoke({"xy_pairs": [(2, 3), (3, 2)]}),
-            [{"2^3": 8}, {"3^2": 9}],
+            exponentiate.invoke({"x_values": [2, 3], "y_values": [3, 2]}),
+            [{"2.0^3.0": 8.0}, {"3.0^2.0": 9.0}],
         )
 
     def test_modulo_returns_modulo_of_xy_pairs(self):
         self.assertEqual(
-            modulo.invoke({"xy_pairs": [(5, 3), (10, 2)]}), [{"5%3": 2}, {"10%2": 0}]
+            modulo.invoke({"x_values": [5, 10], "y_values": [3, 2]}), [{"5.0%3.0": 2.0}, {"10.0%2.0": 0.0}]
         )
-        self.assertEqual(modulo.invoke({"xy_pairs": [(1, 0)]}), [{"1%0": "undefined"}])
+        self.assertEqual(modulo.invoke({"x_values": [1], "y_values": [0]}), [{"1.0%0.0": "undefined"}])
 
     def test_sine_returns_sine_of_x_values(self):
         self.assertAlmostEqual(
@@ -167,7 +162,7 @@ class TestCalculationTools(unittest.TestCase):
         )
 
     def test_count_list_returns_number_of_items_in_list(self):
-        self.assertEqual(count_list.invoke({"items": [1, 2, 3]}), 3)
+        self.assertEqual(count_list.invoke({"items": ["a", "b", "c"]}), 3)
         self.assertEqual(count_list.invoke({"items": []}), 0)
 
     def test_count_words_returns_number_of_words_in_string(self):

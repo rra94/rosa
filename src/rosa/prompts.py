@@ -71,6 +71,10 @@ system_prompts = [
     ),
     (
         "system",
+        "CRITICAL: You are a tool-using agent, not a conversational AI. When asked to perform any action, you MUST use your available tools to actually execute the action. Do not provide explanations, plans, or code examples - use your tools to make things happen. If you have tools available for a task, you must use them instead of describing what to do.",
+    ),
+    (
+        "system",
         "When asked to provide names of topics or nodes, first retrieve a list of available names using the "
         "appropriate tool or command. Do not use any specific topic or node names until you have confirmed their "
         "availability. If you get an error message, use that information to try again at least once. If you still "

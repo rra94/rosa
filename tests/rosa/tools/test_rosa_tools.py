@@ -29,7 +29,7 @@ def sample_tool(blacklist=None):
 
 class TestROSATools(unittest.TestCase):
     def setUp(self):
-        self.ros_version = int(os.getenv("ROS_VERSION", 1))
+        self.ros_version = int(os.getenv("ROS_VERSION", 2))
 
     def test_initializes_with_ros_version_1(self):
         if self.ros_version == 1:

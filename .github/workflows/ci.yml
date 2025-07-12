@@ -39,7 +39,7 @@ jobs:
           python3.9 -m unittest discover -s tests --verbose
         shell: bash
         env:
-          ROS_VERSION: 1
+          ROS_VERSION: 2
 
   test-humble:
     runs-on: ubuntu-22.04

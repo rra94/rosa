@@ -78,13 +78,17 @@ class ROSATools:
         self.__iterative_add(system)
 
         if self.__ros_version == 1:
-            from . import ros1
-
-            self.__iterative_add(ros1, blacklist=blacklist)
+            try:
+                from . import ros1
+                self.__iterative_add(ros1, blacklist=blacklist)
+            except ImportError as e:
+                print(f"Warning: ROS1 tools not available: {e}")
         elif self.__ros_version == 2:
-            from . import ros2
-
-            self.__iterative_add(ros2, blacklist=blacklist)
+            try:
+                from . import ros2
+                self.__iterative_add(ros2, blacklist=blacklist)
+            except ImportError as e:
+                print(f"Warning: ROS2 tools not available (not in ROS2 environment): {e}")
         else:
             raise ValueError("Invalid ROS version. Must be either 1 or 2.")
 

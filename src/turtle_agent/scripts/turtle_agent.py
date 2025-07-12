@@ -1,311 +1,220 @@
-#!/usr/bin/env python3.9
-#  Copyright (c) 2024. Jet Propulsion Laboratory. All rights reserved.
-#
-#  Licensed under the Apache License, Version 2.0 (the "License");
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#  https://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
+#!/usr/bin/env python3
+"""
+A simple turtle agent that uses ROSA to control a turtle in turtlesim.
+"""
 
-import asyncio
 import os
-from datetime import datetime
+import sys
+import time
+import threading
+from typing import List, Optional
 
-import dotenv
-import pyinputplus as pyip
-import rospy
-from langchain.agents import tool, Tool
-# from langchain_ollama import ChatOllama
-from rich.console import Console
-from rich.console import Group
-from rich.live import Live
-from rich.markdown import Markdown
-from rich.panel import Panel
-from rich.text import Text
+# Load environment variables from .env file first
+try:
+    import dotenv
+    dotenv.load_dotenv(dotenv.find_dotenv())
+except ImportError:
+    print("Warning: python-dotenv not available, environment variables must be set manually")
+
+# Add the scripts directory to the Python path for imports
+script_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, script_dir)
+
+import rclpy  # type: ignore
+from rclpy.node import Node  # type: ignore
+
 from rosa import ROSA
+from rosa.gemini_rosa import GeminiROSA
 
-import tools.turtle as turtle_tools
-from help import get_help
-from llm import get_llm
-from prompts import get_prompts
-
-
-# Typical method for defining tools in ROSA
-@tool
-def cool_turtle_tool():
-    """A cool turtle tool that doesn't really do anything."""
-    return "This is a cool turtle tool! It doesn't do anything, but it's cool."
+# Handle both relative and absolute imports
+try:
+    from .llm import get_llm
+    from .prompts import get_prompts
+except ImportError:
+    from llm import get_llm  # type: ignore
+    from prompts import get_prompts  # type: ignore
 
 
-class TurtleAgent(ROSA):
-
-    def __init__(self, streaming: bool = False, verbose: bool = True):
-        self.__blacklist = ["master", "docker"]
-        self.__prompts = get_prompts()
-        self.__llm = get_llm(streaming=streaming)
-
-        # self.__llm = ChatOllama(
-        #     base_url="host.docker.internal:11434",
-        #     model="llama3.1",
-        #     temperature=0,
-        #     num_ctx=8192,
-        # )
-
-        self.__streaming = streaming
-
-        # Another method for adding tools
-        blast_off = Tool(
-            name="blast_off",
-            func=self.blast_off,
-            description="Make the turtle blast off!",
-        )
-
-        super().__init__(
-            ros_version=1,
-            llm=self.__llm,
-            tools=[cool_turtle_tool, blast_off],
-            tool_packages=[turtle_tools],
-            blacklist=self.__blacklist,
-            prompts=self.__prompts,
-            verbose=verbose,
-            accumulate_chat_history=True,
-            streaming=streaming,
-        )
-
-        self.examples = [
-            "Give me a ROS tutorial using the turtlesim.",
-            "Show me how to move the turtle forward.",
-            "Draw a 5-point star using the turtle.",
-            "Teleport to (3, 3) and draw a small hexagon.",
-            "Give me a list of nodes, topics, services, params, and log files.",
-            "Change the background color to light blue and the pen color to red.",
-        ]
-
-        self.command_handler = {
-            "help": lambda: self.submit(get_help(self.examples)),
-            "examples": lambda: self.submit(self.choose_example()),
-            "clear": lambda: self.clear(),
-        }
-
-    def blast_off(self, input: str):
-        return f"""
-        Ok, we're blasting off at the speed of light!
-
-        <ROSA_INSTRUCTIONS>
-            You should now use your tools to make the turtle move around the screen at high speeds.
-        </ROSA_INSTRUCTIONS>
-        """
-
-    @property
-    def greeting(self):
-        greeting = Text(
-            "\nHi! I'm the ROSA-TurtleSim agent 🐢🤖. How can I help you today?\n"
-        )
-        greeting.stylize("frame bold blue")
-        greeting.append(
-            f"Try {', '.join(self.command_handler.keys())} or exit.",
-            style="italic",
-        )
-        return greeting
-
-    def choose_example(self):
-        """Get user selection from the list of examples."""
-        return pyip.inputMenu(
-            self.examples,
-            prompt="\nEnter your choice and press enter: \n",
-            numbered=True,
-            blank=False,
-            timeout=60,
-            default="1",
-        )
-
-    async def clear(self):
-        """Clear the chat history."""
-        self.clear_chat()
-        self.last_events = []
-        self.command_handler.pop("info", None)
-        os.system("clear")
-
-    def get_input(self, prompt: str):
-        """Get user input from the console."""
-        return pyip.inputStr(prompt, default="help")
-
-    async def run(self):
-        """
-        Run the TurtleAgent's main interaction loop.
-
-        This method initializes the console interface and enters a continuous loop to handle user input.
-        It processes various commands including 'help', 'examples', 'clear', and 'exit', as well as
-        custom user queries. The method uses asynchronous operations to stream responses and maintain
-        a responsive interface.
-
-        The loop continues until the user inputs 'exit'.
-
-        Returns:
-            None
-
-        Raises:
-            Any exceptions that might occur during the execution of user commands or streaming responses.
-        """
-        await self.clear()
-        console = Console()
-
-        while True:
-            console.print(self.greeting)
-            input = self.get_input("> ")
-
-            # Handle special commands
-            if input == "exit":
-                break
-            elif input in self.command_handler:
-                await self.command_handler[input]()
-            else:
-                await self.submit(input)
-
-    async def submit(self, query: str):
-        if self.__streaming:
-            await self.stream_response(query)
-        else:
-            self.print_response(query)
-
-    def print_response(self, query: str):
-        """
-        Submit the query to the agent and print the response to the console.
-
-        Args:
-            query (str): The input query to process.
-
-        Returns:
-            None
-        """
-        response = self.invoke(query)
-        console = Console()
-        content_panel = None
-
-        with Live(
-            console=console, auto_refresh=True, vertical_overflow="visible"
-        ) as live:
-            content_panel = Panel(
-                Markdown(response), title="Final Response", border_style="green"
+class TurtleAgent(Node):
+    """A simple turtle agent that uses ROSA to control a turtle in turtlesim."""
+    
+    def __init__(
+        self,
+        streaming: bool = True,
+        verbose: bool = False,
+        blacklist: Optional[List] = None,
+        accumulate_chat_history: bool = True,
+        show_token_usage: bool = False,
+    ):
+        super().__init__("turtle_agent")
+        
+        # Import turtle tools with flexible import handling
+        try:
+            from .tools import turtle
+        except ImportError:
+            from tools import turtle  # type: ignore
+        
+        # Get LLM provider
+        llm_provider = os.getenv("LLM_PROVIDER", "gemini")
+        
+        # Initialize ROSA agent based on provider
+        if llm_provider == "gemini":
+            # Use native Gemini implementation
+            api_key = os.getenv("GOOGLE_API_KEY")
+            if not api_key:
+                print("Available environment variables:")
+                for key, value in os.environ.items():
+                    if 'API' in key or 'LLM' in key or 'GEMINI' in key:
+                        print(f"  {key}={value[:10]}..." if len(value) > 10 else f"  {key}={value}")
+                raise ValueError("GOOGLE_API_KEY environment variable is required for Gemini. Please check your .env file.")
+            
+            model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+            
+            self.rosa = GeminiROSA(
+                ros_version=2,
+                api_key=api_key,
+                model_name=model_name,
+                tool_packages=[turtle],
+                prompts=get_prompts(),
+                verbose=verbose,
+                blacklist=blacklist,
+                accumulate_chat_history=accumulate_chat_history,
             )
-            live.update(content_panel, refresh=True)
-
-    async def stream_response(self, query: str):
-        """
-        Stream the agent's response with rich formatting.
-
-        This method processes the agent's response in real-time, updating the console
-        with formatted output for tokens and keeping track of events.
-
-        Args:
-            query (str): The input query to process.
-
-        Returns:
-            None
-
-        Raises:
-            Any exceptions raised during the streaming process.
-        """
-        console = Console()
-        content = ""
-        self.last_events = []
-
-        panel = Panel("", title="Streaming Response", border_style="green")
-
-        with Live(panel, console=console, auto_refresh=False) as live:
-            async for event in self.astream(query):
-                event["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[
-                    :-3
-                ]
-                if event["type"] == "token":
-                    content += event["content"]
-                    panel.renderable = Markdown(content)
-                    live.refresh()
-                elif event["type"] in ["tool_start", "tool_end", "error"]:
-                    self.last_events.append(event)
-                elif event["type"] == "final":
-                    content = event["content"]
-                    if self.last_events:
-                        panel.renderable = Markdown(
-                            content
-                            + "\n\nType 'info' for details on how I got my answer."
-                        )
-                    else:
-                        panel.renderable = Markdown(content)
-                    panel.title = "Final Response"
-                    live.refresh()
-
-        if self.last_events:
-            self.command_handler["info"] = self.show_event_details
+            self.is_gemini = True
         else:
-            self.command_handler.pop("info", None)
-
-    async def show_event_details(self):
-        """
-        Display detailed information about the events that occurred during the last query.
-        """
-        console = Console()
-
-        if not self.last_events:
-            console.print("[yellow]No events to display.[/yellow]")
-            return
-        else:
-            console.print(Markdown("# Tool Usage and Events"))
-
-        for event in self.last_events:
-            timestamp = event["timestamp"]
-            if event["type"] == "tool_start":
-                console.print(
-                    Panel(
-                        Group(
-                            Text(f"Input: {event.get('input', 'None')}"),
-                            Text(f"Timestamp: {timestamp}", style="dim"),
-                        ),
-                        title=f"Tool Started: {event['name']}",
-                        border_style="blue",
-                    )
-                )
-            elif event["type"] == "tool_end":
-                console.print(
-                    Panel(
-                        Group(
-                            Text(f"Output: {event.get('output', 'N/A')}"),
-                            Text(f"Timestamp: {timestamp}", style="dim"),
-                        ),
-                        title=f"Tool Completed: {event['name']}",
-                        border_style="green",
-                    )
-                )
-            elif event["type"] == "error":
-                console.print(
-                    Panel(
-                        Group(
-                            Text(f"Error: {event['content']}", style="bold red"),
-                            Text(f"Timestamp: {timestamp}", style="dim"),
-                        ),
-                        border_style="red",
-                    )
-                )
-            console.print()
-
-        console.print("[bold]End of events[/bold]\n")
+            # Use LangChain-based implementation
+            llm = get_llm(streaming=streaming)
+            self.rosa = ROSA(
+                ros_version=2,
+                llm=llm,
+                tool_packages=[turtle],
+                prompts=get_prompts(),
+                verbose=verbose,
+                blacklist=blacklist,
+                accumulate_chat_history=accumulate_chat_history,
+                show_token_usage=show_token_usage,
+                streaming=streaming,
+            )
+            self.is_gemini = False
+        
+        self.streaming = streaming
+        self.verbose = verbose
+        
+        # Store tools for direct access
+        self.tools = [turtle]
+        
+        # Initialize ROS2 for turtle interaction
+        self._init_ros()
+        
+        self.get_logger().info(f"TurtleAgent initialized with {llm_provider} provider")
+    
+    def _init_ros(self):
+        """Initialize ROS2 components for turtle interaction."""
+        # This will be handled by the turtle tools
+        pass
+    
+    def process_query(self, query: str) -> str:
+        """Process a user query and return the response."""
+        if self.verbose:
+            self.get_logger().info(f"Processing query: {query}")
+        
+        try:
+            if self.is_gemini:
+                # Native Gemini implementation - always use invoke
+                return self.rosa.invoke(query)
+            elif self.streaming and hasattr(self.rosa, 'astream'):
+                # For streaming responses (LangChain implementation)
+                response_parts = []
+                
+                async def collect_response():
+                    async for chunk in self.rosa.astream(query):  # type: ignore
+                        if chunk.get("type") == "token":
+                            response_parts.append(chunk["content"])
+                        elif chunk.get("type") == "final":
+                            response_parts.append(chunk["content"])
+                
+                # Run async collection
+                import asyncio
+                asyncio.run(collect_response())
+                
+                return "".join(response_parts)
+            else:
+                # For non-streaming responses (both implementations)
+                return self.rosa.invoke(query)
+        except Exception as e:
+            error_msg = f"Error processing query: {str(e)}"
+            if self.verbose:
+                self.get_logger().error(error_msg)
+            return error_msg
+    
+    def clear_chat_history(self):
+        """Clear the chat history."""
+        self.rosa.clear_chat()
+        
+    def get_chat_history(self):
+        """Get the chat history."""
+        return self.rosa.chat_history
 
 
 def main():
-    dotenv.load_dotenv(dotenv.find_dotenv())
-
-    streaming = rospy.get_param("~streaming", False)
-    turtle_agent = TurtleAgent(verbose=False, streaming=streaming)
-
-    asyncio.run(turtle_agent.run())
+    """Main function for the turtle agent."""
+    # Show current environment status
+    print("🔧 Environment Status:")
+    print(f"   LLM_PROVIDER: {os.getenv('LLM_PROVIDER', 'Not set')}")
+    print(f"   GOOGLE_API_KEY: {'Set' if os.getenv('GOOGLE_API_KEY') else 'Not set'}")
+    print(f"   GEMINI_MODEL: {os.getenv('GEMINI_MODEL', 'Not set')}")
+    print()
+    
+    rclpy.init()
+    
+    # Get configuration from environment
+    streaming = os.getenv("STREAMING", "True").lower() == "true"
+    verbose = os.getenv("VERBOSE", "False").lower() == "true"
+    
+    try:
+        # Create turtle agent
+        agent = TurtleAgent(
+            streaming=streaming,
+            verbose=verbose,
+        )
+        
+        # Interactive loop
+        print("🐢 Turtle Agent is ready! Type 'exit' to quit.")
+        print("Example: 'Draw a 5-point star using the turtle'")
+        print("=" * 50)
+        
+        while True:
+            try:
+                user_input = input("\n> ").strip()
+                
+                if user_input.lower() in ['exit', 'quit', 'bye']:
+                    print("Goodbye! 🐢")
+                    break
+                
+                if user_input.lower() == 'clear':
+                    agent.clear_chat_history()
+                    print("Chat history cleared.")
+                    continue
+                
+                if not user_input:
+                    continue
+                
+                # Process the query
+                print("\n🤖 Processing...")
+                response = agent.process_query(user_input)
+                print(f"\n🐢 {response}")
+                
+            except KeyboardInterrupt:
+                print("\n\nGoodbye! 🐢")
+                break
+            except Exception as e:
+                print(f"Error: {e}")
+                
+    except Exception as e:
+        print(f"Failed to initialize turtle agent: {e}")
+    finally:
+        rclpy.shutdown()
 
 
 if __name__ == "__main__":
-    rospy.init_node("rosa", log_level=rospy.INFO)
     main()

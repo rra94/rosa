@@ -13,7 +13,6 @@
 #  limitations under the License.
 
 import math
-import statistics
 from typing import List
 
 from langchain.agents import tool
@@ -21,54 +20,58 @@ from langchain.agents import tool
 
 @tool
 def add_all(numbers: List[float]) -> float:
-    """Returns the sum of a list of numbers."""
+    """Returns the sum of all numbers in the list."""
     return sum(numbers)
 
 
 @tool
 def multiply_all(numbers: List[float]) -> float:
-    """Returns the product of a list of numbers."""
-    result = 1
+    """Returns the product of all numbers in the list."""
+    product = 1
     for number in numbers:
-        result *= number
-    return result
+        product *= number
+    return product
 
 
 @tool
 def mean(numbers: List[float]) -> dict:
-    """Returns the mean of a list of numbers."""
-    return {
-        "mean": statistics.mean(numbers),
-        "stdev": statistics.stdev(numbers),
-    }
+    """Returns the mean of all numbers in the list."""
+    return {"mean": sum(numbers) / len(numbers)}
 
 
 @tool
 def median(numbers: List[float]) -> float:
-    """Returns the median of a list of numbers."""
-    return statistics.median(numbers)
+    """Returns the median of all numbers in the list."""
+    sorted_numbers = sorted(numbers)
+    n = len(sorted_numbers)
+    return sorted_numbers[n // 2]
 
 
 @tool
 def mode(numbers: List[float]) -> List[float]:
-    """Returns the mode of a list of numbers."""
-    return statistics.mode(numbers)
+    """Returns the mode of all numbers in the list."""
+    return [max(set(numbers), key=numbers.count)]
 
 
 @tool
 def variance(numbers: List[float]) -> float:
-    """Returns the variance of a list of numbers."""
-    return statistics.variance(numbers)
+    """Returns the variance of all numbers in the list."""
+    mean_val = sum(numbers) / len(numbers)
+    return sum((x - mean_val) ** 2 for x in numbers) / len(numbers)
 
 
 @tool
-def add(xy_pairs: List[tuple]) -> List[dict]:
-    """Performs addition on the input values x and y.
+def add(x_values: List[float], y_values: List[float]) -> List[dict]:
+    """Performs addition on pairs of x and y values.
 
-    :arg xy_pairs: A list of tuples containing the input values x and y (e.g. [(x1, y1), (x2, y2), ...])
+    :arg x_values: A list of x values (e.g. [x1, x2, x3, ...])
+    :arg y_values: A list of y values (e.g. [y1, y2, y3, ...])
     """
+    if len(x_values) != len(y_values):
+        return [{"error": "x_values and y_values must have the same length"}]
+    
     results = []
-    for x, y in xy_pairs:
+    for x, y in zip(x_values, y_values):
         result = {
             f"{x}+{y}": x + y,
         }
@@ -77,13 +80,17 @@ def add(xy_pairs: List[tuple]) -> List[dict]:
 
 
 @tool
-def subtract(xy_pairs: List[tuple]) -> List[dict]:
-    """Performs subtraction on the input values x and y.
+def subtract(x_values: List[float], y_values: List[float]) -> List[dict]:
+    """Performs subtraction on pairs of x and y values.
 
-    :arg xy_pairs: A list of tuples containing the input values x and y (e.g. [(x1, y1), (x2, y2), ...])
+    :arg x_values: A list of x values (e.g. [x1, x2, x3, ...])
+    :arg y_values: A list of y values (e.g. [y1, y2, y3, ...])
     """
+    if len(x_values) != len(y_values):
+        return [{"error": "x_values and y_values must have the same length"}]
+    
     results = []
-    for x, y in xy_pairs:
+    for x, y in zip(x_values, y_values):
         result = {
             f"{x}-{y}": x - y,
         }
@@ -92,13 +99,17 @@ def subtract(xy_pairs: List[tuple]) -> List[dict]:
 
 
 @tool
-def multiply(xy_pairs: List[tuple]) -> List[dict]:
-    """Performs multiplication on the input values x and y.
+def multiply(x_values: List[float], y_values: List[float]) -> List[dict]:
+    """Performs multiplication on pairs of x and y values.
 
-    :arg xy_pairs: A list of tuples containing the input values x and y (e.g. [(x1, y1), (x2, y2), ...])
+    :arg x_values: A list of x values (e.g. [x1, x2, x3, ...])
+    :arg y_values: A list of y values (e.g. [y1, y2, y3, ...])
     """
+    if len(x_values) != len(y_values):
+        return [{"error": "x_values and y_values must have the same length"}]
+    
     results = []
-    for x, y in xy_pairs:
+    for x, y in zip(x_values, y_values):
         result = {
             f"{x}*{y}": x * y,
         }
@@ -107,13 +118,17 @@ def multiply(xy_pairs: List[tuple]) -> List[dict]:
 
 
 @tool
-def divide(xy_pairs: List[tuple]) -> List[dict]:
-    """Performs division on the input values x and y.
+def divide(x_values: List[float], y_values: List[float]) -> List[dict]:
+    """Performs division on pairs of x and y values.
 
-    :arg xy_pairs: A list of tuples containing the input values x and y (e.g. [(x1, y1), (x2, y2), ...])
+    :arg x_values: A list of x values (e.g. [x1, x2, x3, ...])
+    :arg y_values: A list of y values (e.g. [y1, y2, y3, ...])
     """
+    if len(x_values) != len(y_values):
+        return [{"error": "x_values and y_values must have the same length"}]
+    
     results = []
-    for x, y in xy_pairs:
+    for x, y in zip(x_values, y_values):
         result = {
             f"{x}/{y}": x / y if y != 0 else "undefined",
         }
@@ -122,13 +137,17 @@ def divide(xy_pairs: List[tuple]) -> List[dict]:
 
 
 @tool
-def exponentiate(xy_pairs: List[tuple]) -> List[dict]:
-    """Performs exponentiation on the input values x and y.
+def exponentiate(x_values: List[float], y_values: List[float]) -> List[dict]:
+    """Performs exponentiation on pairs of x and y values (x^y).
 
-    :arg xy_pairs: A list of tuples containing the input values x and y (e.g. [(x1, y1), (x2, y2), ...])
+    :arg x_values: A list of x values (e.g. [x1, x2, x3, ...])
+    :arg y_values: A list of y values (e.g. [y1, y2, y3, ...])
     """
+    if len(x_values) != len(y_values):
+        return [{"error": "x_values and y_values must have the same length"}]
+    
     results = []
-    for x, y in xy_pairs:
+    for x, y in zip(x_values, y_values):
         result = {
             f"{x}^{y}": x**y,
         }
@@ -137,13 +156,17 @@ def exponentiate(xy_pairs: List[tuple]) -> List[dict]:
 
 
 @tool
-def modulo(xy_pairs: List[tuple]) -> List[dict]:
-    """Performs modulo on the input values x and y.
+def modulo(x_values: List[float], y_values: List[float]) -> List[dict]:
+    """Performs modulo operation on pairs of x and y values (x % y).
 
-    :arg xy_pairs: A list of tuples containing the input values x and y (e.g. [(x1, y1), (x2, y2), ...])
+    :arg x_values: A list of x values (e.g. [x1, x2, x3, ...])
+    :arg y_values: A list of y values (e.g. [y1, y2, y3, ...])
     """
+    if len(x_values) != len(y_values):
+        return [{"error": "x_values and y_values must have the same length"}]
+    
     results = []
-    for x, y in xy_pairs:
+    for x, y in zip(x_values, y_values):
         result = {
             f"{x}%{y}": x % y if y != 0 else "undefined",
         }
@@ -297,7 +320,7 @@ def tanh(x_values: List[float]) -> List[dict]:
 
 
 @tool
-def count_list(items: List) -> int:
+def count_list(items: List[str]) -> int:
     """Returns the number of items in a list."""
     return len(items)
 

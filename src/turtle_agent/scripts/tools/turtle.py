@@ -14,29 +14,75 @@
 
 from math import cos, sin, sqrt
 from typing import List
+import time
 
-import rospy
+import rclpy
+from rclpy.node import Node
+from rclpy.qos import QoSProfile
 from geometry_msgs.msg import Twist
 from langchain.agents import tool
 from std_srvs.srv import Empty
 from turtlesim.msg import Pose
 from turtlesim.srv import Spawn, TeleportAbsolute, TeleportRelative, Kill, SetPen
 
+# Global node instance for ROS2 operations
+_turtle_node = None
 cmd_vel_pubs = {}
+pose_subscriptions = {}
+latest_poses = {}
 
 
-def add_cmd_vel_pub(name: str, publisher: rospy.Publisher):
+def get_turtle_node():
+    """Get or create the turtle node for ROS2 operations."""
+    global _turtle_node
+    if _turtle_node is None:
+        # Check if rclpy is already initialized
+        if not rclpy.ok():
+            rclpy.init(args=None)
+        _turtle_node = Node('turtle_tools_node')
+    return _turtle_node
+
+
+def add_cmd_vel_pub(name: str):
+    """Add a command velocity publisher for a turtle."""
     global cmd_vel_pubs
-    cmd_vel_pubs[name] = publisher
+    node = get_turtle_node()
+    qos_profile = QoSProfile(depth=10)
+    cmd_vel_pubs[name] = node.create_publisher(Twist, f'/{name}/cmd_vel', qos_profile)
 
 
 def remove_cmd_vel_pub(name: str):
+    """Remove a command velocity publisher for a turtle."""
     global cmd_vel_pubs
-    cmd_vel_pubs.pop(name, None)
+    if name in cmd_vel_pubs:
+        cmd_vel_pubs[name].destroy()
+        cmd_vel_pubs.pop(name, None)
 
 
-# Add the default turtle1 publisher on startup
-add_cmd_vel_pub("turtle1", rospy.Publisher(f"/turtle1/cmd_vel", Twist, queue_size=10))
+def add_pose_subscription(name: str):
+    """Add a pose subscription for a turtle."""
+    global pose_subscriptions, latest_poses
+    node = get_turtle_node()
+    
+    def pose_callback(msg):
+        latest_poses[name] = msg
+    
+    qos_profile = QoSProfile(depth=10)
+    pose_subscriptions[name] = node.create_subscription(
+        Pose, f'/{name}/pose', pose_callback, qos_profile
+    )
+
+
+def remove_pose_subscription(name: str):
+    """Remove a pose subscription for a turtle."""
+    global pose_subscriptions, latest_poses
+    if name in pose_subscriptions:
+        pose_subscriptions[name].destroy()
+        pose_subscriptions.pop(name, None)
+        latest_poses.pop(name, None)
+
+
+# Turtle1 publisher and subscription will be initialized lazily when first used
 
 
 def within_bounds(x: float, y: float) -> tuple:
@@ -57,10 +103,14 @@ def will_be_within_bounds(
 ) -> tuple:
     """Check if the turtle will be within bounds after publishing a twist command."""
     # Get the current pose of the turtle
-    pose = get_turtle_pose.invoke({"names": [name]})
-    current_x = pose[name].x
-    current_y = pose[name].y
-    current_theta = pose[name].theta
+    pose_dict = get_turtle_pose.invoke({"names": [name]})
+    if "Error" in pose_dict:
+        return False, pose_dict["Error"]
+    
+    current_pose = pose_dict[name]
+    current_x = current_pose.x
+    current_y = current_pose.y
+    current_theta = current_pose.theta
 
     # Calculate the new position and orientation
     if abs(angle) < 1e-6:  # Straight line motion
@@ -120,19 +170,28 @@ def spawn_turtle(name: str, x: float, y: float, theta: float) -> str:
     # Remove any forward slashes from the name
     name = name.replace("/", "")
 
-    try:
-        rospy.wait_for_service("/spawn", timeout=5)
-    except rospy.ROSException:
+    node = get_turtle_node()
+    client = node.create_client(Spawn, '/spawn')
+    
+    if not client.wait_for_service(timeout_sec=5.0):
         return f"Failed to spawn {name}: service not available."
 
     try:
-        spawn = rospy.ServiceProxy("/spawn", Spawn)
-        spawn(x=x, y=y, theta=theta, name=name)
-
-        global cmd_vel_pubs
-        cmd_vel_pubs[name] = rospy.Publisher(f"/{name}/cmd_vel", Twist, queue_size=10)
-
-        return f"{name} spawned at x: {x}, y: {y}, theta: {theta}."
+        request = Spawn.Request()
+        request.x = x
+        request.y = y
+        request.theta = theta
+        request.name = name
+        
+        future = client.call_async(request)
+        rclpy.spin_until_future_complete(node, future)
+        
+        if future.result() is not None:
+            add_cmd_vel_pub(name)
+            add_pose_subscription(name)
+            return f"{name} spawned at x: {x}, y: {y}, theta: {theta}."
+        else:
+            return f"Failed to spawn {name}: service call failed."
     except Exception as e:
         return f"Failed to spawn {name}: {e}"
 
@@ -144,26 +203,32 @@ def kill_turtle(names: List[str]):
 
     :param names: List of names of the turtles to remove (do not include the forward slash).
     """
-
     # Remove any forward slashes from the names
     names = [name.replace("/", "") for name in names]
     response = ""
-    global cmd_vel_pubs
+    node = get_turtle_node()
 
     for name in names:
-        try:
-            rospy.wait_for_service(f"/{name}/kill", timeout=5)
-        except rospy.ROSException:
-            response += f"Failed to kill {name}: /{name}/kill service not available.\n"
+        client = node.create_client(Kill, '/kill')
+        
+        if not client.wait_for_service(timeout_sec=5.0):
+            response += f"Failed to kill {name}: /kill service not available.\n"
             continue
+            
         try:
-            kill = rospy.ServiceProxy(f"/{name}/kill", Kill)
-            kill()
-
-            cmd_vel_pubs.pop(name, None)
-
-            response += f"Successfully killed {name}.\n"
-        except rospy.ServiceException as e:
+            request = Kill.Request()
+            request.name = name
+            
+            future = client.call_async(request)
+            rclpy.spin_until_future_complete(node, future)
+            
+            if future.result() is not None:
+                remove_cmd_vel_pub(name)
+                remove_pose_subscription(name)
+                response += f"Successfully killed {name}.\n"
+            else:
+                response += f"Failed to kill {name}: service call failed.\n"
+        except Exception as e:
             response += f"Failed to kill {name}: {e}\n"
 
     return response
@@ -172,15 +237,22 @@ def kill_turtle(names: List[str]):
 @tool
 def clear_turtlesim():
     """Clears the turtlesim background and sets the color to the value of the background parameters."""
-    try:
-        rospy.wait_for_service("/clear", timeout=5)
-    except rospy.ROSException:
+    node = get_turtle_node()
+    client = node.create_client(Empty, '/clear')
+    
+    if not client.wait_for_service(timeout_sec=5.0):
         return "Failed to clear the turtlesim background: /clear service not available."
+        
     try:
-        clear = rospy.ServiceProxy("/clear", Empty)
-        clear()
-        return "Successfully cleared the turtlesim background."
-    except rospy.ServiceException as e:
+        request = Empty.Request()
+        future = client.call_async(request)
+        rclpy.spin_until_future_complete(node, future)
+        
+        if future.result() is not None:
+            return "Successfully cleared the turtlesim background."
+        else:
+            return "Failed to clear the turtlesim background: service call failed."
+    except Exception as e:
         return f"Failed to clear the turtlesim background: {e}"
 
 
@@ -191,20 +263,26 @@ def get_turtle_pose(names: List[str]) -> dict:
 
     :param names: List of names of the turtles to get the pose of.
     """
-
     # Remove any forward slashes from the names
     names = [name.replace("/", "") for name in names]
     poses = {}
+    node = get_turtle_node()
 
     # Get the pose of each turtle
     for name in names:
-        try:
-            msg = rospy.wait_for_message(f"/{name}/pose", Pose, timeout=5)
-            poses[name] = msg
-        except rospy.ROSException:
-            return {
-                "Error": f"Failed to get pose for {name}: /{name}/pose not available."
-            }
+        if name not in pose_subscriptions:
+            add_pose_subscription(name)
+        
+        # Spin for a short time to get the latest pose
+        start_time = time.time()
+        while name not in latest_poses and (time.time() - start_time) < 2.0:
+            rclpy.spin_once(node, timeout_sec=0.1)
+        
+        if name in latest_poses:
+            poses[name] = latest_poses[name]
+        else:
+            return {"Error": f"Failed to get pose for {name}: /{name}/pose not available."}
+    
     return poses
 
 
@@ -225,24 +303,38 @@ def teleport_absolute(
     if not in_bounds:
         return message
 
-    try:
-        rospy.wait_for_service(f"/{name}/teleport_absolute", timeout=5)
-    except rospy.ROSException:
+    name = name.replace("/", "")
+    node = get_turtle_node()
+    client = node.create_client(TeleportAbsolute, f'/{name}/teleport_absolute')
+    
+    if not client.wait_for_service(timeout_sec=5.0):
         return f"Failed to teleport the {name}: /{name}/teleport_absolute service not available."
 
     try:
-        teleport = rospy.ServiceProxy(f"/{name}/teleport_absolute", TeleportAbsolute)
         if hide_pen:
             set_pen.invoke({"name": name, "r": 0, "g": 0, "b": 0, "width": 1, "off": 1})
-        teleport(x=x, y=y, theta=theta)
-        if hide_pen:
-            set_pen.invoke(
-                {"name": name, "r": 30, "g": 30, "b": 255, "width": 1, "off": 0}
-            )
-        current_pose = get_turtle_pose.invoke({"names": [name]})
-
-        return f"{name} new pose: ({current_pose[name].x}, {current_pose[name].y}) at {current_pose[name].theta} radians."
-    except rospy.ServiceException as e:
+        
+        request = TeleportAbsolute.Request()
+        request.x = x
+        request.y = y
+        request.theta = theta
+        
+        future = client.call_async(request)
+        rclpy.spin_until_future_complete(node, future)
+        
+        if future.result() is not None:
+            if hide_pen:
+                set_pen.invoke({"name": name, "r": 30, "g": 30, "b": 255, "width": 1, "off": 0})
+            
+            current_pose = get_turtle_pose.invoke({"names": [name]})
+            if "Error" not in current_pose:
+                pose = current_pose[name]
+                return f"{name} new pose: ({pose.x}, {pose.y}) at {pose.theta} radians."
+            else:
+                return f"{name} teleported to ({x}, {y}) at {theta} radians."
+        else:
+            return f"Failed to teleport the turtle: service call failed."
+    except Exception as e:
         return f"Failed to teleport the turtle: {e}"
 
 
@@ -259,16 +351,31 @@ def teleport_relative(name: str, linear: float, angular: float):
     if not in_bounds:
         return message
 
-    try:
-        rospy.wait_for_service(f"/{name}/teleport_relative", timeout=5)
-    except rospy.ROSException:
+    name = name.replace("/", "")
+    node = get_turtle_node()
+    client = node.create_client(TeleportRelative, f'/{name}/teleport_relative')
+    
+    if not client.wait_for_service(timeout_sec=5.0):
         return f"Failed to teleport the {name}: /{name}/teleport_relative service not available."
+        
     try:
-        teleport = rospy.ServiceProxy(f"/{name}/teleport_relative", TeleportRelative)
-        teleport(linear=linear, angular=angular)
-        current_pose = get_turtle_pose.invoke({"names": [name]})
-        return f"{name} new pose: ({current_pose[name].x}, {current_pose[name].y}) at {current_pose[name].theta} radians."
-    except rospy.ServiceException as e:
+        request = TeleportRelative.Request()
+        request.linear = linear
+        request.angular = angular
+        
+        future = client.call_async(request)
+        rclpy.spin_until_future_complete(node, future)
+        
+        if future.result() is not None:
+            current_pose = get_turtle_pose.invoke({"names": [name]})
+            if "Error" not in current_pose:
+                pose = current_pose[name]
+                return f"{name} new pose: ({pose.x}, {pose.y}) at {pose.theta} radians."
+            else:
+                return f"{name} teleported by linear: {linear}, angular: {angular}."
+        else:
+            return f"Failed to teleport the turtle: service call failed."
+    except Exception as e:
         return f"Failed to teleport the turtle: {e}"
 
 
@@ -305,22 +412,31 @@ def publish_twist_to_cmd_vel(
     vel.angular.x, vel.angular.y, vel.angular.z = 0.0, 0.0, angle
 
     try:
-        global cmd_vel_pubs
+        if name not in cmd_vel_pubs:
+            add_cmd_vel_pub(name)
+        
         pub = cmd_vel_pubs[name]
+        node = get_turtle_node()
 
         for _ in range(steps):
             pub.publish(vel)
-            rospy.sleep(1)
+            time.sleep(1.0)  # ROS2 equivalent of rospy.sleep(1)
+            rclpy.spin_once(node, timeout_sec=0.0)  # Process callbacks
+            
     except Exception as e:
         return f"Failed to publish {vel} to /{name}/cmd_vel: {e}"
     finally:
         current_pose = get_turtle_pose.invoke({"names": [name]})
-        return (
-            f"New Pose ({name}): x={current_pose[name].x}, y={current_pose[name].y}, "
-            f"theta={current_pose[name].theta} rads, "
-            f"linear_velocity={current_pose[name].linear_velocity}, "
-            f"angular_velocity={current_pose[name].angular_velocity}."
-        )
+        if "Error" not in current_pose:
+            pose = current_pose[name]
+            return (
+                f"New Pose ({name}): x={pose.x}, y={pose.y}, "
+                f"theta={pose.theta} rads, "
+                f"linear_velocity={pose.linear_velocity}, "
+                f"angular_velocity={pose.angular_velocity}."
+            )
+        else:
+            return f"Command sent to {name}, but couldn't retrieve final pose."
 
 
 @tool
@@ -333,8 +449,9 @@ def stop_turtle(name: str):
     return publish_twist_to_cmd_vel.invoke(
         {
             "name": name,
-            "linear_velocity": (0.0, 0.0, 0.0),
-            "angular_velocity": (0.0, 0.0, 0.0),
+            "velocity": 0.0,
+            "lateral": 0.0,
+            "angle": 0.0,
         }
     )
 
@@ -344,25 +461,39 @@ def reset_turtlesim():
     """
     Resets the turtlesim, removes all turtles, clears any markings, and creates a new default turtle at the center.
     """
+    node = get_turtle_node()
+    client = node.create_client(Empty, '/reset')
+    
+    if not client.wait_for_service(timeout_sec=5.0):
+        return "Failed to reset the turtlesim environment: /reset service not available."
+        
     try:
-        rospy.wait_for_service("/reset", timeout=5)
-    except rospy.ROSException:
-        return (
-            "Failed to reset the turtlesim environment: /reset service not available."
-        )
-    try:
-        reset = rospy.ServiceProxy("/reset", Empty)
-        reset()
+        request = Empty.Request()
+        future = client.call_async(request)
+        rclpy.spin_until_future_complete(node, future)
+        
+        if future.result() is not None:
+            # Clear the cmd_vel publishers and pose subscriptions
+            global cmd_vel_pubs, pose_subscriptions, latest_poses
+            
+            # Destroy existing publishers and subscriptions
+            for pub in cmd_vel_pubs.values():
+                pub.destroy()
+            for sub in pose_subscriptions.values():
+                sub.destroy()
+                
+            cmd_vel_pubs.clear()
+            pose_subscriptions.clear()
+            latest_poses.clear()
+            
+            # Re-add turtle1
+            add_cmd_vel_pub("turtle1")
+            add_pose_subscription("turtle1")
 
-        # Clear the cmd_vel publishers
-        global cmd_vel_pubs
-        cmd_vel_pubs.clear()
-        cmd_vel_pubs["turtle1"] = rospy.Publisher(
-            f"/turtle1/cmd_vel", Twist, queue_size=10
-        )
-
-        return "Successfully reset the turtlesim environment. Ignore all previous commands, failures, and goals."
-    except rospy.ServiceException as e:
+            return "Successfully reset the turtlesim environment. Ignore all previous commands, failures, and goals."
+        else:
+            return "Failed to reset the turtlesim environment: service call failed."
+    except Exception as e:
         return f"Failed to reset the turtlesim environment: {e}"
 
 
@@ -381,15 +512,28 @@ def set_pen(name: str, r: int, g: int, b: int, width: int, off: int):
     # Remove any forward slashes from the name
     name = name.replace("/", "")
 
-    try:
-        rospy.wait_for_service(f"/{name}/set_pen", timeout=5)
-    except rospy.ROSException:
+    node = get_turtle_node()
+    client = node.create_client(SetPen, f'/{name}/set_pen')
+    
+    if not client.wait_for_service(timeout_sec=5.0):
         return f"Failed to set the pen color for the turtle: /{name}/set_pen service not available."
+        
     try:
-        set_pen = rospy.ServiceProxy(f"/{name}/set_pen", SetPen)
-        set_pen(r=r, g=g, b=b, width=width, off=off)
-        return f"Successfully set the pen color for the turtle: {name}."
-    except rospy.ServiceException as e:
+        request = SetPen.Request()
+        request.r = r
+        request.g = g
+        request.b = b
+        request.width = width
+        request.off = off
+        
+        future = client.call_async(request)
+        rclpy.spin_until_future_complete(node, future)
+        
+        if future.result() is not None:
+            return f"Successfully set the pen color for the turtle: {name}."
+        else:
+            return f"Failed to set the pen color for the turtle: service call failed."
+    except Exception as e:
         return f"Failed to set the pen color for the turtle: {e}"
 
 
@@ -406,8 +550,12 @@ def has_moved_to_expected_coordinates(
     :param tolerance: tolerance level for the comparison
     """
     current_pose = get_turtle_pose.invoke({"names": [name]})
-    current_x = current_pose[name].x
-    current_y = current_pose[name].y
+    if "Error" in current_pose:
+        return current_pose["Error"]
+    
+    pose = current_pose[name]
+    current_x = pose.x
+    current_y = pose.y
 
     distance = ((current_x - expected_x) ** 2 + (current_y - expected_y) ** 2) ** 0.5
     if distance <= tolerance:

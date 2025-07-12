@@ -15,4 +15,9 @@
 from .prompts import RobotSystemPrompts
 from .rosa import ROSA, ChatModel
 
-__all__ = ["ROSA", "RobotSystemPrompts", "ChatModel"]
+# Conditionally import GeminiROSA (might not be available if google-generativeai is not installed)
+try:
+    from .gemini_rosa import GeminiROSA
+    __all__ = ["ROSA", "GeminiROSA", "RobotSystemPrompts", "ChatModel"]
+except ImportError:
+    __all__ = ["ROSA", "RobotSystemPrompts", "ChatModel"]

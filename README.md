@@ -56,7 +56,7 @@ pip3 install jpl-rosa
 from rosa import ROSA
 
 llm = get_your_llm_here()
-agent = ROSA(ros_version=1, llm=llm)
+agent = ROSA(ros_version=2, llm=llm)
 agent.invoke("Show me a list of topics that have publishers but no subscribers")
 ```
 
